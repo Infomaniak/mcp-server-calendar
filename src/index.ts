@@ -16,7 +16,7 @@ if (!token) {
 const server = new McpServer(
     {
         name: "Infomaniak calendar MCP Server",
-        version: "0.0.1",
+        version: "0.0.2",
     },
     {
         capabilities: {
@@ -27,6 +27,13 @@ const server = new McpServer(
         },
     },
 );
+
+const parseDate = function (date: Date) {
+    return date.toISOString()
+        .replace("T", " ")
+        .replace("Z", "")
+        .slice(0, -4);
+}
 
 class CalendarClient {
     private readonly headers: { Authorization: string; "Content-Type": string };
@@ -40,8 +47,8 @@ class CalendarClient {
 
     async listEvents(from: string, to: string): Promise<any> {
         const params = new URLSearchParams({
-            from: from.replace("T", " "),
-            to: to.replace("T", " "),
+            from: parseDate(new Date(from)),
+            to: parseDate(new Date(to)),
         });
 
         const response = await fetch(
@@ -67,6 +74,12 @@ class CalendarClient {
         return response.json();
     }
 
+    async getDefaultCalendar(): Promise<any> {
+        const calendars = await this.getCalendars();
+
+        return calendars.data.calendars[0];
+    }
+
     async getUserProfile(): Promise<any> {
         const response = await fetch(
             `https://api.infomaniak.com/2/profile`,
@@ -79,7 +92,7 @@ class CalendarClient {
     }
 
     async createEvent(title: string, start: string, end: string, description: string | undefined, attendees: string[] | undefined): Promise<any> {
-        const calendars = await this.getCalendars();
+        const calendar = await this.getDefaultCalendar();
         const profile = await this.getUserProfile();
         let calendarAttendees: {
             address: any;
@@ -114,12 +127,12 @@ class CalendarClient {
                 method: "POST",
                 body: JSON.stringify({
                     title,
-                    start: start.replace("T", " "),
-                    end: end.replace("T", " "),
+                    start: parseDate(new Date(start)),
+                    end: parseDate(new Date(end)),
                     description,
                     freebusy: "busy",
                     type: "event",
-                    calendar_id: calendars.data.calendars[0].id,
+                    calendar_id: calendar[0].id,
                     fullday: false,
                     timezone_start: profile.data.preferences.timezone.name,
                     timezone_end: profile.data.preferences.timezone.name,
