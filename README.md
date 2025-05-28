@@ -5,8 +5,19 @@ MCP Server for the Calendar API.
 ## Tools
 
 1. `calendar_list_events`
-    - Search in your calendar
+    - Search events in your calendar
+   - Required inputs:
+      - `from` (string): Start time (eg. 2025-05-28 12:00:00)
+      - `to` (string): End time (eg. 2025-05-28 13:00:00)
     - Returns: List of events
+
+2. `calendar_create_event`
+   - Create a event in your calendar
+   - Required inputs:
+      - `title` (string): The event title
+      - `start` (string): The event starting date (eg. 2025-05-28 12:00:00)
+      - `end` (string): The event ending date (eg. 2025-05-28 13:00:00)
+   - Returns: The created event
 
 ## Setup
 
