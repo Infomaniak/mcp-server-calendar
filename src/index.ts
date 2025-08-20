@@ -132,7 +132,7 @@ class CalendarClient {
                     description,
                     freebusy: "busy",
                     type: "event",
-                    calendar_id: calendar[0].id,
+                    calendar_id: calendar.id,
                     fullday: false,
                     timezone_start: profile.data.preferences.timezone.name,
                     timezone_end: profile.data.preferences.timezone.name,
