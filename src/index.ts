@@ -94,7 +94,7 @@ class CalendarClient {
         return response.json();
     }
 
-    async createEvent(title: string, start: string, end: string, description: string | undefined, attendees: string[] | undefined): Promise<any> {
+    async createEvent(title: string, start: string, end: string, description: string | undefined, attendees: string | undefined): Promise<any> {
         const calendar = await this.getDefaultCalendar();
         const profile = await this.getUserProfile();
         let calendarAttendees: {
@@ -106,21 +106,25 @@ class CalendarClient {
         }[] = [];
 
         if (attendees) {
-            calendarAttendees = attendees.map((attendee: any) => ({
-                address: attendee,
-                className: "Attendee",
-                name: attendee,
-                organizer: false,
-                state: "NEEDS-ACTION",
-            }));
+            try {
+                calendarAttendees = JSON.parse(attendees).map((attendee: any) => ({
+                    address: attendee,
+                    className: "Attendee",
+                    name: attendee,
+                    organizer: false,
+                    state: "NEEDS-ACTION",
+                }));
 
-            calendarAttendees.push({
-                address: profile.data.email,
-                className: "Attendee",
-                name: profile.data.display_name,
-                organizer: true,
-                state: "ACCEPTED",
-            })
+                calendarAttendees.push({
+                    address: profile.data.email,
+                    className: "Attendee",
+                    name: profile.data.display_name,
+                    organizer: true,
+                    state: "ACCEPTED",
+                })
+            } catch (error) {
+                throw new Error('Invalid attendees, JSON array of email address is expected');
+            }
         }
 
         const response = await fetch(
@@ -178,14 +182,7 @@ server.tool(
         start: z.string().describe("Event start time (Date time string)"),
         end: z.string().describe("Event end time (Date time string)"),
         description: z.string().describe("Event description").optional(),
-        attendees: z.preprocess(
-            (val) => {
-                if (typeof val === "string") {
-                    return JSON.parse(val);
-                }
-
-                return val;
-            }, z.array(z.string()).describe("List of attendee email addresses").optional()),
+        attendees: z.string().describe("List of attendee email addresses as a JSON array").optional(),
     },
     async ({title, start, end, description, attendees}) => {
         const response = await calendarClient.createEvent(title, start, end, description, attendees);
