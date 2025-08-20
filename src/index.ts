@@ -46,7 +46,10 @@ class CalendarClient {
     }
 
     async listEvents(from: string, to: string): Promise<any> {
+        const calendar = await this.getDefaultCalendar();
+
         const params = new URLSearchParams({
+            calendar_id: calendar.id,
             from: parseDate(new Date(from)),
             to: parseDate(new Date(to)),
         });
