@@ -178,7 +178,14 @@ server.tool(
         start: z.string().describe("Event start time (Date time string)"),
         end: z.string().describe("Event end time (Date time string)"),
         description: z.string().describe("Event description").optional(),
-        attendees: z.array(z.string()).describe("List of attendee email addresses").optional(),
+        attendees: z.preprocess(
+            (val) => {
+                if (typeof val === "string") {
+                    return JSON.parse(val);
+                }
+
+                return val;
+            }, z.array(z.string()).describe("List of attendee email addresses").optional()),
     },
     async ({title, start, end, description, attendees}) => {
         const response = await calendarClient.createEvent(title, start, end, description, attendees);
