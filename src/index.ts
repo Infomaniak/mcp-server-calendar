@@ -16,7 +16,7 @@ if (!token) {
 const server = new McpServer(
     {
         name: "Infomaniak calendar MCP Server",
-        version: "0.0.5",
+        version: "0.0.6",
     },
     {
         capabilities: {
