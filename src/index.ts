@@ -45,27 +45,6 @@ class CalendarClient {
         };
     }
 
-    async listEvents(from: string, to: string): Promise<any> {
-        const calendar = await this.getDefaultCalendar();
-
-        const params = new URLSearchParams({
-            calendar_id: calendar.id,
-            from: parseDate(new Date(from)),
-            to: parseDate(new Date(to)),
-        });
-
-        const response = await fetch(
-            `https://api.infomaniak.com/1/calendar/pim/event?${params}`,
-            {headers: this.headers},
-        );
-
-        if (!response.ok) {
-            throw new Error('Something went wrong during event listing');
-        }
-
-        return response.json();
-    }
-
     async getCalendars(): Promise<any> {
         const response = await fetch(
             `https://api.infomaniak.com/1/calendar/pim/calendar`,
@@ -94,8 +73,39 @@ class CalendarClient {
         return response.json();
     }
 
-    async createEvent(title: string, start: string, end: string, description: string | undefined, attendees: string | undefined): Promise<any> {
-        const calendar = await this.getDefaultCalendar();
+    async listEvents(from: string, to: string, calendarId?: string): Promise<any> {
+        let calendar;
+        if (calendarId) {
+            calendar = {id: calendarId};
+        } else {
+            calendar = await this.getDefaultCalendar();
+        }
+
+        const params = new URLSearchParams({
+            calendar_id: calendar.id,
+            from: parseDate(new Date(from)),
+            to: parseDate(new Date(to)),
+        });
+
+        const response = await fetch(
+            `https://api.infomaniak.com/1/calendar/pim/event?${params}`,
+            {headers: this.headers},
+        );
+
+        if (!response.ok) {
+            throw new Error('Something went wrong during event listing');
+        }
+
+        return response.json();
+    }
+
+    async createEvent(title: string, start: string, end: string, description: string | undefined, attendees: string | undefined, calendarId?: string): Promise<any> {
+        let calendar;
+        if (calendarId) {
+            calendar = {id: calendarId};
+        } else {
+            calendar = await this.getDefaultCalendar();
+        }
         const profile = await this.getUserProfile();
         let calendarAttendees: {
             address: any;
@@ -159,14 +169,28 @@ class CalendarClient {
 const calendarClient = new CalendarClient();
 
 server.tool(
+    "calendar_list_calendars",
+    "List all available Infomaniak calendars",
+    {},
+    async () => {
+        const response = await calendarClient.getCalendars();
+
+        return {
+            content: [{type: "text", text: JSON.stringify(response.data.calendars)}],
+        };
+    }
+);
+
+server.tool(
     "calendar_list_events",
     "List Infomaniak calendar events within a specified time range",
     {
         from: z.string().describe("Start time (Date time string)"),
-        to: z.string().describe("End time (Date time string)")
+        to: z.string().describe("End time (Date time string)"),
+        calendar_id: z.string().describe("Calendar ID (optional, uses default if not provided)").optional(),
     },
-    async ({from, to}) => {
-        const response = await calendarClient.listEvents(from, to);
+    async ({from, to, calendar_id}) => {
+        const response = await calendarClient.listEvents(from, to, calendar_id);
 
         return {
             content: [{type: "text", text: JSON.stringify(response.data)}],
@@ -183,9 +207,10 @@ server.tool(
         end: z.string().describe("Event end time (Date time string)"),
         description: z.string().describe("Event description").optional(),
         attendees: z.string().describe("List of attendee email addresses as a JSON array").optional(),
+        calendar_id: z.string().describe("Calendar ID (optional, uses default if not provided)").optional(),
     },
-    async ({title, start, end, description, attendees}) => {
-        const response = await calendarClient.createEvent(title, start, end, description, attendees);
+    async ({title, start, end, description, attendees, calendar_id}) => {
+        const response = await calendarClient.createEvent(title, start, end, description, attendees, calendar_id);
 
         return {
             content: [{type: "text", text: JSON.stringify(response.data)}],
