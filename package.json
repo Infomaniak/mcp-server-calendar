@@ -1,6 +1,6 @@
 {
   "name": "@infomaniak/mcp-server-calendar",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server for interacting with Infomaniak Calendar",
   "license": "MIT",
   "author": "Infonaniak (https://infomaniak.com)",
@@ -13,15 +13,15 @@
   "files": [
     "dist"
   ],
-    "scripts": {
-        "build": "tsc && shx chmod +x dist/*.js",
-        "prepare": "npm run build",
-        "watch": "tsc --watch",
-        "test": "npm run build && node --test tests/*.mjs"
-    },
+  "scripts": {
+    "build": "tsc && shx chmod +x dist/*.js",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "test": "npm run build && node --test tests/*.mjs"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.12.0",
-    "zod": "3.25.20"
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22",
