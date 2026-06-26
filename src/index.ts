@@ -4,6 +4,10 @@ import {McpServer} from "@modelcontextprotocol/sdk/server/mcp.js";
 import {z} from "zod";
 import {StdioServerTransport} from "@modelcontextprotocol/sdk/server/stdio.js";
 import {CalendarClient} from "./calendar-client.js";
+import {createRequire} from "node:module";
+
+const require = createRequire(import.meta.url);
+const {version} = require("../package.json") as {version: string};
 
 const token = process.env.CALENDAR_TOKEN;
 
@@ -17,7 +21,7 @@ if (!token) {
 const server = new McpServer(
     {
         name: "Infomaniak calendar MCP Server",
-        version: "1.0.2",
+        version,
     },
     {
         capabilities: {
