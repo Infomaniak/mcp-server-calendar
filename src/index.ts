@@ -74,10 +74,49 @@ server.tool(
         end: z.string().describe("Event end time (Date time string)"),
         description: z.string().describe("Event description").optional(),
         attendees: z.string().describe("List of attendee email addresses as a JSON array").optional(),
+        rrule: z.string().describe("Recurrence rule in RFC 5545 format, e.g. FREQ=WEEKLY;INTERVAL=1;BYDAY=MO or FREQ=DAILY or FREQ=MONTHLY;BYMONTHDAY=15. Use empty string to remove recurrence.").optional(),
         calendar_id: z.string().describe("Calendar ID (optional, uses default if not provided)").optional(),
     },
-    async ({title, start, end, description, attendees, calendar_id}) => {
-        const response = await calendarClient.createEvent(title, start, end, description, attendees, calendar_id);
+    async ({title, start, end, description, attendees, rrule, calendar_id}) => {
+        const response = await calendarClient.createEvent(title, start, end, description, attendees, rrule, calendar_id);
+
+        return {
+            content: [{type: "text", text: JSON.stringify(response.data)}],
+        };
+    }
+);
+
+server.tool(
+    "calendar_update_event",
+    "Update an existing Infomaniak calendar event",
+    {
+        event_id: z.string().describe("The ID of the event to update"),
+        title: z.string().describe("Event title").optional(),
+        start: z.string().describe("Event start time (Date time string)").optional(),
+        end: z.string().describe("Event end time (Date time string)").optional(),
+        description: z.string().describe("Event description").optional(),
+        attendees: z.string().describe("List of attendee email addresses as a JSON array").optional(),
+        rrule: z.string().describe("Recurrence rule in RFC 5545 format, e.g. FREQ=WEEKLY;INTERVAL=1;BYDAY=MO or FREQ=DAILY or FREQ=MONTHLY;BYMONTHDAY=15. Use empty string to remove recurrence.").optional(),
+        calendar_id: z.string().describe("Calendar ID (optional, uses event's calendar if not provided)").optional(),
+    },
+    async ({event_id, title, start, end, description, attendees, rrule, calendar_id}) => {
+        const response = await calendarClient.updateEvent(event_id, title, start, end, description, attendees, rrule, calendar_id);
+
+        return {
+            content: [{type: "text", text: JSON.stringify(response.data)}],
+        };
+    }
+);
+
+server.tool(
+    "calendar_delete_event",
+    "Delete an Infomaniak calendar event",
+    {
+        event_id: z.string().describe("The ID of the event to delete"),
+        calendar_id: z.string().describe("Calendar ID (optional, uses default if not provided)").optional(),
+    },
+    async ({event_id, calendar_id}) => {
+        const response = await calendarClient.deleteEvent(event_id, calendar_id);
 
         return {
             content: [{type: "text", text: JSON.stringify(response.data)}],

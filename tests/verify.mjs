@@ -12,7 +12,7 @@ describe("CalendarClient instantiation", () => {
         const client = new CalendarClient("test-token");
         const methods = [
             "getCalendars", "getDefaultCalendar", "getUserProfile",
-            "listEvents", "createEvent"
+            "listEvents", "getEvent", "createEvent", "updateEvent", "deleteEvent"
         ];
         for (const m of methods) {
             assert.strictEqual(
