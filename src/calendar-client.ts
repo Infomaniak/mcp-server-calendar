@@ -35,7 +35,7 @@ export class CalendarClient {
     async getDefaultCalendar(): Promise<any> {
         const calendars = await this.getCalendars();
 
-        return calendars.data.calendars[0];
+        return calendars.data.calendars.find((c: any) => c.default) ?? calendars.data.calendars[0];
     }
 
     async getUserProfile(): Promise<any> {
