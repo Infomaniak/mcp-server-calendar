@@ -61,6 +61,52 @@ describe("CalendarClient.getDefaultCalendar", () => {
 
         globalThis.fetch = originalFetch;
     });
+
+    test("returns calendar with default:true even when not first", async () => {
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async () => ({
+            json: async () => ({
+                result: "success",
+                data: {
+                    calendars: [
+                        { id: 10, name: "Not Default", default: false },
+                        { id: 20, name: "Other Calendar", default: false },
+                        { id: 30, name: "Real Default", default: true },
+                    ]
+                }
+            })
+        });
+
+        const client = new CalendarClient("mock-token");
+        const result = await client.getDefaultCalendar();
+
+        assert.strictEqual(result.id, 30);
+        assert.strictEqual(result.name, "Real Default");
+
+        globalThis.fetch = originalFetch;
+    });
+
+    test("falls back to first calendar when none has default:true", async () => {
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async () => ({
+            json: async () => ({
+                result: "success",
+                data: {
+                    calendars: [
+                        { id: 10, name: "First", default: false },
+                        { id: 20, name: "Second", default: false },
+                    ]
+                }
+            })
+        });
+
+        const client = new CalendarClient("mock-token");
+        const result = await client.getDefaultCalendar();
+
+        assert.strictEqual(result.id, 10);
+
+        globalThis.fetch = originalFetch;
+    });
 });
 
 describe("CalendarClient.getUserProfile", () => {
