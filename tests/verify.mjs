@@ -241,3 +241,97 @@ describe("CalendarClient.createEvent", () => {
         );
     });
 });
+
+describe("CalendarClient.updateEvent", () => {
+    const existingEvent = {
+        id: 42,
+        calendar_id: 1,
+        title: "Standup",
+        description: "Daily sync",
+        start: "2026-09-22 09:00:00",
+        end: "2026-09-22 09:15:00",
+        location: "Salle Nyon",
+        url: "https://meet.example.com/abc",
+        categories: ["work"],
+        color: "blue",
+        sequence: 3,
+        freebusy: "busy",
+        type: "event",
+        fullday: false,
+    };
+
+    function mockClient() {
+        const client = new CalendarClient("mock-token");
+        client.getEvent = async () => ({ result: "success", data: { ...existingEvent } });
+        client.getUserProfile = async () => ({
+            data: {
+                email: "test@example.com",
+                display_name: "Test User",
+                preferences: { timezone: { name: "Europe/Zurich" } }
+            }
+        });
+        return client;
+    }
+
+    async function captureUpdate(call) {
+        let capturedBody = null;
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async (url, options) => {
+            capturedBody = options?.body;
+            return {
+                ok: true,
+                text: async () => "",
+                json: async () => ({ result: "success", data: {} })
+            };
+        };
+
+        try {
+            await call();
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+
+        return JSON.parse(capturedBody);
+    }
+
+    test("preserves location and color when moving an event", async () => {
+        const body = await captureUpdate(() =>
+            mockClient().updateEvent(
+                "42",
+                undefined,
+                "2026-09-22 10:00:00",
+                "2026-09-22 10:15:00",
+                undefined,
+                undefined,
+                undefined
+            )
+        );
+
+        assert.strictEqual(body.location, "Salle Nyon");
+        assert.strictEqual(body.color, "blue");
+    });
+
+    test("omits url, categories and sequence like the web app", async () => {
+        const body = await captureUpdate(() =>
+            mockClient().updateEvent("42", "New title", undefined, undefined, undefined, undefined, undefined)
+        );
+
+        assert.strictEqual(body.url, undefined);
+        assert.strictEqual(body.categories, undefined);
+        assert.strictEqual(body.sequence, undefined);
+    });
+
+    test("omits location when the event has none", async () => {
+        const client = mockClient();
+        client.getEvent = async () => ({
+            result: "success",
+            data: { ...existingEvent, location: null },
+        });
+
+        const body = await captureUpdate(() =>
+            client.updateEvent("42", "New title", undefined, undefined, undefined, undefined, undefined)
+        );
+
+        assert.strictEqual(body.location, undefined);
+    });
+});

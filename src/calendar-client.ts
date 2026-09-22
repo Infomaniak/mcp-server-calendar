@@ -171,6 +171,8 @@ export class CalendarClient {
                     type: event.type ?? "event",
                     fullday: event.fullday ?? false,
                     private: event.private ?? false,
+                    ...(event.location ? {location: event.location} : {}),
+                    color: event.color ?? null,
                     attendees: calendarAttendees,
                     alarms: event.alarms || [],
                     attachments: event.attachments || [],
