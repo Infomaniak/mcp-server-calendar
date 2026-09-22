@@ -167,6 +167,173 @@ describe("CalendarClient.listEvents", () => {
 
         globalThis.fetch = originalFetch;
     });
+
+    test("annotates bookable_resource_name on listed events", async () => {
+        let resourceFetches = 0;
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async (url) => {
+            if (String(url).includes("bookable-resources")) {
+                resourceFetches++;
+                return {
+                    ok: true,
+                    json: async () => ({
+                        result: "success",
+                        data: [{ uuid: "res-uuid-1", name: "Salle Genève" }]
+                    })
+                };
+            }
+            return {
+                ok: true,
+                json: async () => ({
+                    result: "success",
+                    data: [
+                        { id: 1, title: "With room", bookable_resource_id: "res-uuid-1" },
+                        { id: 2, title: "Without room", bookable_resource_id: null },
+                    ]
+                })
+            };
+        };
+
+        try {
+            const client = new CalendarClient("mock-token");
+            const result = await client.listEvents("2025-01-01 00:00:00", "2025-01-02 00:00:00", "123");
+
+            assert.strictEqual(result.data[0].bookable_resource_name, "Salle Genève");
+            assert.strictEqual(result.data[1].bookable_resource_name, undefined);
+            assert.strictEqual(resourceFetches, 1);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    test("skips resource lookup when no event books a resource", async () => {
+        let resourceFetches = 0;
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async (url) => {
+            if (String(url).includes("bookable-resources")) {
+                resourceFetches++;
+            }
+            return {
+                ok: true,
+                json: async () => ({
+                    result: "success",
+                    data: [{ id: 1, title: "Plain event", bookable_resource_id: null }]
+                })
+            };
+        };
+
+        try {
+            const client = new CalendarClient("mock-token");
+            await client.listEvents("2025-01-01 00:00:00", "2025-01-02 00:00:00", "123");
+
+            assert.strictEqual(resourceFetches, 0);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+});
+
+describe("CalendarClient.getEvent", () => {
+    function mockFetchRouting(eventData, resourcesData, calls) {
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async (url) => {
+            calls.push(String(url));
+            if (String(url).includes("bookable-resources")) {
+                return {
+                    ok: true,
+                    json: async () => ({ result: "success", data: resourcesData ?? [] })
+                };
+            }
+            return {
+                ok: true,
+                json: async () => ({ result: "success", data: eventData })
+            };
+        };
+        return originalFetch;
+    }
+
+    test("calls the event endpoint and returns the event", async () => {
+        const calls = [];
+        const originalFetch = mockFetchRouting({ id: 42, title: "Standup" }, [], calls);
+
+        try {
+            const client = new CalendarClient("mock-token");
+            const result = await client.getEvent("42");
+
+            assert.strictEqual(result.data.title, "Standup");
+            assert.ok(calls[0].includes("/calendar/pim/event/42"), "URL contains event endpoint");
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    test("adds bookable_resource_name when the event books a resource", async () => {
+        const calls = [];
+        const originalFetch = mockFetchRouting(
+            { id: 42, title: "Standup", bookable_resource_id: "res-uuid-1" },
+            [{ uuid: "res-uuid-1", name: "Salle Genève" }],
+            calls
+        );
+
+        try {
+            const client = new CalendarClient("mock-token");
+            const result = await client.getEvent("42");
+
+            assert.strictEqual(result.data.bookable_resource_name, "Salle Genève");
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    test("leaves bookable_resource_name null when the resource is unknown", async () => {
+        const calls = [];
+        const originalFetch = mockFetchRouting(
+            { id: 42, title: "Standup", bookable_resource_id: "unknown-uuid" },
+            [],
+            calls
+        );
+
+        try {
+            const client = new CalendarClient("mock-token");
+            const result = await client.getEvent("42");
+
+            assert.strictEqual(result.data.bookable_resource_name, null);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    test("skips resource lookup when the event books no resource", async () => {
+        const calls = [];
+        const originalFetch = mockFetchRouting({ id: 42, title: "Standup", bookable_resource_id: null }, [], calls);
+
+        try {
+            const client = new CalendarClient("mock-token");
+            await client.getEvent("42");
+
+            assert.strictEqual(calls.length, 1);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    test("throws on non-ok response", async () => {
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async () => ({
+            ok: false,
+            text: async () => "",
+            json: async () => ({ result: "error" })
+        });
+
+        const client = new CalendarClient("mock-token");
+
+        await assert.rejects(
+            async () => client.getEvent("42"),
+            /Something went wrong during event retrieval/
+        );
+
+        globalThis.fetch = originalFetch;
+    });
 });
 
 describe("CalendarClient.createEvent", () => {

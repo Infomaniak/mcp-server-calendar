@@ -60,6 +60,43 @@ export class CalendarClient {
         return response.json();
     }
 
+    async getBookableResources(): Promise<any> {
+        const response = await fetch(
+            `https://api.infomaniak.com/1/calendar/pim/bookable-resources/all?with%5B%5D=permission`,
+            {
+                headers: this.headers,
+            }
+        );
+
+        if (!response.ok) {
+            return {data: []};
+        }
+
+        return response.json();
+    }
+
+    private async annotateBookableResources(events: any[]): Promise<any[]> {
+        const resourceIds = new Set(
+            events.map(event => event?.bookable_resource_id).filter(Boolean)
+        );
+
+        if (resourceIds.size === 0) {
+            return events;
+        }
+
+        const resources = await this.getBookableResources();
+        const nameByUuid = new Map<string, any>();
+        for (const resource of resources?.data ?? []) {
+            if (resource?.uuid) {
+                nameByUuid.set(resource.uuid, resource.name);
+            }
+        }
+
+        return events.map(event => event?.bookable_resource_id
+            ? {...event, bookable_resource_name: nameByUuid.get(event.bookable_resource_id) ?? null}
+            : event);
+    }
+
     async listEvents(from: string, to: string, calendarId?: string): Promise<any> {
         let calendar;
         if (calendarId) {
@@ -83,7 +120,9 @@ export class CalendarClient {
             throw new Error('Something went wrong during event listing');
         }
 
-        return response.json();
+        const result = await response.json();
+        result.data = await this.annotateBookableResources(result.data ?? []);
+        return result;
     }
 
     async getEvent(eventId: string): Promise<any> {
@@ -96,7 +135,10 @@ export class CalendarClient {
             throw new Error(`Something went wrong during event retrieval ${await response.text()}`);
         }
 
-        return response.json();
+        const result = await response.json();
+        const [event] = await this.annotateBookableResources([result.data]);
+        result.data = event;
+        return result;
     }
 
     async createEvent(title: string, start: string, end: string, description: string | undefined, attendees: string | undefined, rrule: string | undefined, calendarId?: string): Promise<any> {

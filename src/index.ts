@@ -66,6 +66,21 @@ server.tool(
 );
 
 server.tool(
+    "calendar_get_event",
+    "Get a single Infomaniak calendar event by ID",
+    {
+        event_id: z.string().describe("The ID of the event to retrieve"),
+    },
+    async ({event_id}) => {
+        const response = await calendarClient.getEvent(event_id);
+
+        return {
+            content: [{type: "text", text: JSON.stringify(response.data)}],
+        };
+    }
+);
+
+server.tool(
     "calendar_create_event",
     "Create a new Infomaniak calendar event",
     {
