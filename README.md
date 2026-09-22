@@ -15,9 +15,15 @@ MCP Server for the Calendar API.
       - `to` (string): End time (eg. 2025-05-28 13:00:00)
    - Optional inputs:
       - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
-   - Returns: List of events
+   - Returns: List of events. Events booking a room include `bookable_resource_name`.
 
-3. `calendar_create_event`
+3. `calendar_get_event`
+   - Get a single event by ID
+   - Required inputs:
+      - `event_id` (string): The ID of the event to retrieve
+   - Returns: The event. Includes `bookable_resource_name` when the event books a room.
+
+4. `calendar_create_event`
    - Create a event in your calendar
    - Required inputs:
       - `title` (string): The event title
@@ -29,8 +35,9 @@ MCP Server for the Calendar API.
       - `rrule` (string): Recurrence rule in RFC 5545 format (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO`, `FREQ=DAILY`, `FREQ=MONTHLY;BYMONTHDAY=15`)
       - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
    - Returns: The created event
+   - Notes: Attendees listed in `attendees` receive an actionable invitation email (accept/decline in one click).
 
-4. `calendar_update_event`
+5. `calendar_update_event`
    - Update an existing event in your calendar
    - Required inputs:
       - `event_id` (string): The ID of the event to update
@@ -42,14 +49,16 @@ MCP Server for the Calendar API.
       - `attendees` (string): JSON array of attendee emails
       - `rrule` (string): Recurrence rule in RFC 5545 format (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO`, `FREQ=DAILY`, `FREQ=MONTHLY;BYMONTHDAY=15`). Use empty string to remove recurrence.
       - `calendar_id` (string): Calendar identifier (defaults to event's calendar if omitted)
+      - `notify_attendees` (boolean): Send the updated invitation to attendees via email (defaults to false)
    - Returns: The updated event
 
-5. `calendar_delete_event`
+6. `calendar_delete_event`
    - Delete an event from your calendar
    - Required inputs:
       - `event_id` (string): The ID of the event to delete
    - Optional inputs:
       - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
+      - `notify_attendees` (boolean): Send a cancellation to attendees via email (defaults to false)
    - Returns: The deleted event
 
 ## Setup
