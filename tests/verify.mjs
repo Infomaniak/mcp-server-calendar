@@ -240,6 +240,56 @@ describe("CalendarClient.createEvent", () => {
             /Invalid attendees/
         );
     });
+
+    test("resolves contactId from the address book and notifies attendees", async () => {
+        let capturedBody = null;
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async (url, options) => {
+            capturedBody = options?.body;
+            return {
+                ok: true,
+                text: async () => "",
+                json: async () => ({ result: "success", data: { id: 42 } })
+            };
+        };
+
+        const client = new CalendarClient("mock-token");
+        client.getDefaultCalendar = async () => ({ id: "1" });
+        client.getUserProfile = async () => ({
+            data: {
+                email: "leopold.jacquot@gmail.com",
+                display_name: "Léo Jacquot",
+                preferences: { timezone: { name: "Europe/Zurich" } }
+            }
+        });
+        client.getContacts = async () => ({
+            result: "success",
+            data: [
+                { id: "r100424560", name: "leopold9974", emails: ["leopold9974@gmail.com"] },
+                { id: 95022716, name: "Léo Jacquot", emails: ["leopold.jacquot@gmail.com"] },
+            ]
+        });
+
+        try {
+            await client.createEvent(
+                "Test",
+                "2025-01-01 10:00:00",
+                "2025-01-01 11:00:00",
+                undefined,
+                '["leopold9974@gmail.com", "unknown@example.com"]'
+            );
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+
+        const body = JSON.parse(capturedBody);
+        assert.strictEqual(body.notifyAttendees, true);
+        const byAddress = Object.fromEntries(body.attendees.map(a => [a.address, a]));
+        assert.strictEqual(byAddress["leopold9974@gmail.com"].contactId, "r100424560");
+        assert.strictEqual(byAddress["unknown@example.com"].contactId, undefined);
+        assert.strictEqual(byAddress["leopold.jacquot@gmail.com"].contactId, 95022716);
+        assert.strictEqual(byAddress["leopold.jacquot@gmail.com"].organizer, true);
+    });
 });
 
 describe("CalendarClient.updateEvent", () => {
@@ -333,5 +383,68 @@ describe("CalendarClient.updateEvent", () => {
         );
 
         assert.strictEqual(body.location, undefined);
+    });
+
+    test("sends notifyAttendees true and keeps imip_request false when requested", async () => {
+        const body = await captureUpdate(() =>
+            mockClient().updateEvent("42", "New title", undefined, undefined, undefined, undefined, undefined, undefined, true)
+        );
+
+        assert.strictEqual(body.notifyAttendees, true);
+        assert.strictEqual(body.imip_request, false);
+    });
+
+    test("keeps notifications off by default", async () => {
+        const body = await captureUpdate(() =>
+            mockClient().updateEvent("42", "New title", undefined, undefined, undefined, undefined, undefined)
+        );
+
+        assert.strictEqual(body.notifyAttendees, false);
+        assert.strictEqual(body.imip_request, false);
+    });
+});
+
+describe("CalendarClient.deleteEvent", () => {
+    async function captureDelete(call) {
+        let capturedUrl = null;
+        let capturedOptions = null;
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async (url, options) => {
+            capturedUrl = url;
+            capturedOptions = options;
+            return {
+                ok: true,
+                text: async () => "",
+                json: async () => ({ result: "success", data: {} })
+            };
+        };
+
+        try {
+            await call();
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+
+        return { capturedUrl, capturedOptions };
+    }
+
+    test("sends notification body when requested", async () => {
+        const { capturedUrl, capturedOptions } = await captureDelete(() =>
+            new CalendarClient("mock-token").deleteEvent("42", "7", true)
+        );
+
+        assert.ok(capturedUrl.includes("/calendar/pim/event/42"), "URL contains event endpoint");
+        assert.deepStrictEqual(JSON.parse(capturedOptions?.body), {
+            notifyAttendees: true,
+            imip_request: true,
+        });
+    });
+
+    test("sends no body by default", async () => {
+        const { capturedOptions } = await captureDelete(() =>
+            new CalendarClient("mock-token").deleteEvent("42", "7")
+        );
+
+        assert.strictEqual(capturedOptions?.body, undefined);
     });
 });

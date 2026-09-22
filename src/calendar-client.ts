@@ -49,6 +49,17 @@ export class CalendarClient {
         return response.json();
     }
 
+    async getContacts(): Promise<any> {
+        const response = await fetch(
+            `https://api.infomaniak.com/1/calendar/pim/contact/all?with=emails`,
+            {
+                headers: this.headers,
+            }
+        );
+
+        return response.json();
+    }
+
     async listEvents(from: string, to: string, calendarId?: string): Promise<any> {
         let calendar;
         if (calendarId) {
@@ -96,7 +107,7 @@ export class CalendarClient {
             calendar = await this.getDefaultCalendar();
         }
         const profile = await this.getUserProfile();
-        const calendarAttendees = this.buildAttendees(attendees, profile);
+        const calendarAttendees = await this.buildAttendees(attendees, profile);
 
         const body: Record<string, any> = {
             title,
@@ -110,6 +121,7 @@ export class CalendarClient {
             timezone_start: profile.data.preferences.timezone.name,
             timezone_end: profile.data.preferences.timezone.name,
             attendees: calendarAttendees,
+            notifyAttendees: calendarAttendees.length > 0,
         };
 
         if (rrule !== undefined) {
@@ -132,7 +144,7 @@ export class CalendarClient {
         return response.json();
     }
 
-    async updateEvent(eventId: string, title: string | undefined, start: string | undefined, end: string | undefined, description: string | undefined, attendees: string | undefined, rrule: string | undefined, calendarId?: string): Promise<any> {
+    async updateEvent(eventId: string, title: string | undefined, start: string | undefined, end: string | undefined, description: string | undefined, attendees: string | undefined, rrule: string | undefined, calendarId?: string, notifyAttendees: boolean = false): Promise<any> {
         const existing = await this.getEvent(eventId);
         const event = existing.data;
 
@@ -150,7 +162,7 @@ export class CalendarClient {
 
         let calendarAttendees = event.attendees || [];
         if (attendees !== undefined) {
-            calendarAttendees = this.buildAttendees(attendees, profile);
+            calendarAttendees = await this.buildAttendees(attendees, profile);
         }
 
         const response = await fetch(
@@ -179,7 +191,7 @@ export class CalendarClient {
                     rrule: rrule !== undefined ? rrule : (event.rrule || ""),
                     meet_room_url: event.meet_room_url || "",
                     bookable_resource_id: event.bookable_resource_id,
-                    notifyAttendees: false,
+                    notifyAttendees: notifyAttendees,
                     parent_updated: false,
                     imip_request: false,
                 })
@@ -193,7 +205,7 @@ export class CalendarClient {
         return response.json();
     }
 
-    async deleteEvent(eventId: string, calendarId?: string): Promise<any> {
+    async deleteEvent(eventId: string, calendarId?: string, notifyAttendees: boolean = false): Promise<any> {
         let calendar;
         if (calendarId) {
             calendar = {id: calendarId};
@@ -210,6 +222,9 @@ export class CalendarClient {
             {
                 headers: this.headers,
                 method: "DELETE",
+                ...(notifyAttendees ? {
+                    body: JSON.stringify({notifyAttendees: true, imip_request: true}),
+                } : {}),
             },
         );
 
@@ -220,29 +235,51 @@ export class CalendarClient {
         return response.json();
     }
 
-    private buildAttendees(attendees: string | undefined, profile: any): any[] {
+    private async buildAttendees(attendees: string | undefined, profile: any): Promise<any[]> {
         let calendarAttendees: any[] = [];
 
         if (attendees) {
+            let emails: string[];
             try {
-                calendarAttendees = JSON.parse(attendees).map((attendee: any) => ({
-                    address: attendee,
-                    className: "Attendee",
-                    name: attendee,
-                    organizer: false,
-                    state: "NEEDS-ACTION",
-                }));
-
-                calendarAttendees.push({
-                    address: profile.data.email,
-                    className: "Attendee",
-                    name: profile.data.display_name,
-                    organizer: true,
-                    state: "ACCEPTED",
-                });
+                emails = JSON.parse(attendees);
             } catch (error) {
                 throw new Error('Invalid attendees, JSON array of email address is expected');
             }
+
+            if (!Array.isArray(emails)) {
+                throw new Error('Invalid attendees, JSON array of email address is expected');
+            }
+
+            const contacts = await this.getContacts();
+            const contactByEmail = new Map<string, any>();
+            for (const contact of contacts?.data ?? []) {
+                for (const email of contact.emails ?? []) {
+                    contactByEmail.set(String(email).toLowerCase(), contact);
+                }
+            }
+
+            for (const email of emails) {
+                const contact = contactByEmail.get(String(email).toLowerCase());
+                calendarAttendees.push({
+                    className: "Attendee",
+                    ...(contact ? {contactId: contact.id} : {}),
+                    address: email,
+                    state: "NEEDS-ACTION",
+                    name: contact?.name ?? email,
+                    organizer: false,
+                });
+            }
+
+            const organizerEmail = profile.data.email;
+            const organizerContact = contactByEmail.get(String(organizerEmail).toLowerCase());
+            calendarAttendees.push({
+                className: "Attendee",
+                ...(organizerContact ? {contactId: organizerContact.id} : {}),
+                address: organizerEmail,
+                name: profile.data.display_name,
+                organizer: true,
+                state: "ACCEPTED",
+            });
         }
 
         return calendarAttendees;

@@ -98,9 +98,10 @@ server.tool(
         attendees: z.string().describe("List of attendee email addresses as a JSON array").optional(),
         rrule: z.string().describe("Recurrence rule in RFC 5545 format, e.g. FREQ=WEEKLY;INTERVAL=1;BYDAY=MO or FREQ=DAILY or FREQ=MONTHLY;BYMONTHDAY=15. Use empty string to remove recurrence.").optional(),
         calendar_id: z.string().describe("Calendar ID (optional, uses event's calendar if not provided)").optional(),
+        notify_attendees: z.boolean().describe("Send the updated invitation to attendees via email (imip). Defaults to false.").optional(),
     },
-    async ({event_id, title, start, end, description, attendees, rrule, calendar_id}) => {
-        const response = await calendarClient.updateEvent(event_id, title, start, end, description, attendees, rrule, calendar_id);
+    async ({event_id, title, start, end, description, attendees, rrule, calendar_id, notify_attendees}) => {
+        const response = await calendarClient.updateEvent(event_id, title, start, end, description, attendees, rrule, calendar_id, notify_attendees);
 
         return {
             content: [{type: "text", text: JSON.stringify(response.data)}],
@@ -114,9 +115,10 @@ server.tool(
     {
         event_id: z.string().describe("The ID of the event to delete"),
         calendar_id: z.string().describe("Calendar ID (optional, uses default if not provided)").optional(),
+        notify_attendees: z.boolean().describe("Send a cancellation to attendees via email (imip). Defaults to false.").optional(),
     },
-    async ({event_id, calendar_id}) => {
-        const response = await calendarClient.deleteEvent(event_id, calendar_id);
+    async ({event_id, calendar_id, notify_attendees}) => {
+        const response = await calendarClient.deleteEvent(event_id, calendar_id, notify_attendees);
 
         return {
             content: [{type: "text", text: JSON.stringify(response.data)}],

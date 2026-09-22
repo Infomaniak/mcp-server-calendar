@@ -29,6 +29,7 @@ MCP Server for the Calendar API.
       - `rrule` (string): Recurrence rule in RFC 5545 format (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO`, `FREQ=DAILY`, `FREQ=MONTHLY;BYMONTHDAY=15`)
       - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
    - Returns: The created event
+   - Notes: Attendees listed in `attendees` receive an actionable invitation email (accept/decline in one click).
 
 4. `calendar_update_event`
    - Update an existing event in your calendar
@@ -42,6 +43,7 @@ MCP Server for the Calendar API.
       - `attendees` (string): JSON array of attendee emails
       - `rrule` (string): Recurrence rule in RFC 5545 format (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO`, `FREQ=DAILY`, `FREQ=MONTHLY;BYMONTHDAY=15`). Use empty string to remove recurrence.
       - `calendar_id` (string): Calendar identifier (defaults to event's calendar if omitted)
+      - `notify_attendees` (boolean): Send the updated invitation to attendees via email (defaults to false)
    - Returns: The updated event
 
 5. `calendar_delete_event`
@@ -50,6 +52,7 @@ MCP Server for the Calendar API.
       - `event_id` (string): The ID of the event to delete
    - Optional inputs:
       - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
+      - `notify_attendees` (boolean): Send a cancellation to attendees via email (defaults to false)
    - Returns: The deleted event
 
 ## Setup
