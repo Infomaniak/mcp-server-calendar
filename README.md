@@ -77,6 +77,31 @@ No `TZ` environment variable is required.
     - Visit the [API Token page](https://manager.infomaniak.com/v3/ng/accounts/token/list)
     - Choose "workspace:calendar user_info" scopes
 
+### HTTP transport (default)
+
+The server exposes the MCP Streamable HTTP transport on
+`http://$MCP_HTTP_HOST:$MCP_HTTP_PORT/mcp` (default `http://127.0.0.1:4500/mcp`).
+The published Docker image starts the HTTP server out of the box:
+
+```bash
+docker run --rm -p 4500:4500 \
+  -e CALENDAR_TOKEN \
+  infomaniak/mcp-server-calendar
+```
+
+The `MCP_HTTP_*` variables described below can be used to customise the bind
+address, port, and accepted `Host`/`Origin` headers.
+
+For stdio clients, the upstream `node dist/index.js` entry is still available
+as an optional escape hatch:
+
+```bash
+docker run --rm -i \
+  --entrypoint node \
+  infomaniak/mcp-server-calendar \
+  dist/index.js
+```
+
 ### Usage with Claude Desktop
 
 Add the following to your `claude_desktop_config.json`:
@@ -126,6 +151,10 @@ Add the following to your `claude_desktop_config.json`:
 ### Environment Variables
 
 1. `CALENDAR_TOKEN`: Required. Your calendar token.
+2. `MCP_HTTP_HOST`: HTTP bind address. Defaults to `127.0.0.1`. The published Docker image overrides this to `0.0.0.0` so the port is reachable from the host.
+3. `MCP_HTTP_PORT`: HTTP listen port. Integer in 1..65535, default `4500`. The published Docker image exposes this port.
+4. `MCP_HTTP_ALLOWED_HOSTS`: Optional comma-separated list of accepted `Host` header values. Defaults to loopback hostnames.
+5. `MCP_HTTP_ALLOWED_ORIGINS`: Optional comma-separated list of accepted `Origin` header values (a trailing `*` is a suffix wildcard). Defaults to loopback origins.
 
 ### Troubleshooting
 
