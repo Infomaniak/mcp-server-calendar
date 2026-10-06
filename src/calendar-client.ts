@@ -208,6 +208,16 @@ export class CalendarClient {
             body.rrule = rrule;
         }
 
+        // Reminder: default to 10 minutes before the event (Timo's calendar
+        // default). Events created through the raw API get NO alarm unless an
+        // `alarms` key is present, so always send one. `reminderMinutesBefore`
+        // === 0 explicitly disables the reminder.
+        if (reminderMinutesBefore === undefined || reminderMinutesBefore !== 0) {
+            body.alarms = [{minutesBefore: reminderMinutesBefore ?? 10, action: "DISPLAY"}];
+        } else {
+            body.alarms = [];
+        }
+
         const response = await fetch(
             `https://api.infomaniak.com/1/calendar/pim/event`,
             {
