@@ -61,6 +61,16 @@ MCP Server for the Calendar API.
       - `notify_attendees` (boolean): Send a cancellation to attendees via email (defaults to false)
    - Returns: The deleted event
 
+## Date & time
+
+All date inputs are interpreted in your profile timezone (the one set in your Infomaniak account), and event times always match the wall clock you provide regardless of the machine running the server:
+
+- `2025-05-28 12:00:00` (or `2025-05-28T12:00:00`) means 12:00 in your profile timezone
+- `2025-05-28` means midnight (00:00:00) in your profile timezone
+- `2025-05-28T10:00:00Z` or `2025-05-28T12:00:00+02:00` (ISO with offset) are converted to your profile timezone
+
+No `TZ` environment variable is required.
+
 ## Setup
 
 1. Create a calendar token linked to your user:

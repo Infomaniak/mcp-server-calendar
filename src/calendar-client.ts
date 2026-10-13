@@ -10,11 +10,32 @@ export class CalendarClient {
         };
     }
 
-    private parseDate(date: Date) {
-        return date.toISOString()
-            .replace("T", " ")
-            .replace("Z", "")
-            .slice(0, -4);
+    private parseDate(date: string, timezone: string): string {
+        const iso = date.trim().replace(" ", "T");
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+            return `${iso} 00:00:00`;
+        }
+
+        if (/([zZ]|[+-]\d{2}:?\d{2})$/.test(iso)) {
+            const wallClock = new Intl.DateTimeFormat("en-CA", {
+                timeZone: timezone,
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hourCycle: "h23",
+            }).format(new Date(iso));
+            return wallClock.replace(", ", " ");
+        }
+
+        return new Date(`${iso}Z`).toISOString().replace("T", " ").slice(0, 19);
+    }
+
+    private getProfileTimezone(profile: any): string {
+        return profile?.data?.preferences?.timezone?.name || "UTC";
     }
 
     private parseApiDate(dateStr: string): string {
@@ -98,6 +119,9 @@ export class CalendarClient {
     }
 
     async listEvents(from: string, to: string, calendarId?: string): Promise<any> {
+        const profile = await this.getUserProfile();
+        const timezone = this.getProfileTimezone(profile);
+
         let calendar;
         if (calendarId) {
             calendar = {id: calendarId};
@@ -107,8 +131,8 @@ export class CalendarClient {
 
         const params = new URLSearchParams({
             calendar_id: calendar.id,
-            from: this.parseDate(new Date(from)),
-            to: this.parseDate(new Date(to)),
+            from: this.parseDate(from, timezone),
+            to: this.parseDate(to, timezone),
         });
 
         const response = await fetch(
@@ -153,15 +177,15 @@ export class CalendarClient {
 
         const body: Record<string, any> = {
             title,
-            start: this.parseDate(new Date(start)),
-            end: this.parseDate(new Date(end)),
+            start: this.parseDate(start, this.getProfileTimezone(profile)),
+            end: this.parseDate(end, this.getProfileTimezone(profile)),
             description,
             freebusy: "busy",
             type: "event",
             calendar_id: calendar.id,
             fullday: false,
-            timezone_start: profile.data.preferences.timezone.name,
-            timezone_end: profile.data.preferences.timezone.name,
+            timezone_start: this.getProfileTimezone(profile),
+            timezone_end: this.getProfileTimezone(profile),
             attendees: calendarAttendees,
             notifyAttendees: calendarAttendees.length > 0,
         };
@@ -198,7 +222,7 @@ export class CalendarClient {
         }
 
         const profile = await this.getUserProfile();
-        const timezone = profile.data.preferences.timezone.name;
+        const timezone = this.getProfileTimezone(profile);
         const timezoneStart = event.timezone_start || timezone;
         const timezoneEnd = event.timezone_end || timezone;
 
@@ -217,8 +241,8 @@ export class CalendarClient {
                     calendar_id: calendar.id,
                     title: title ?? event.title,
                     description: description ?? event.description ?? "",
-                    start: start ? this.parseDate(new Date(start)) : this.parseApiDate(event.start),
-                    end: end ? this.parseDate(new Date(end)) : this.parseApiDate(event.end),
+                    start: start ? this.parseDate(start, timezoneStart) : this.parseApiDate(event.start),
+                    end: end ? this.parseDate(end, timezoneEnd) : this.parseApiDate(event.end),
                     timezone_start: timezoneStart,
                     timezone_end: timezoneEnd,
                     freebusy: event.freebusy ?? "busy",
