@@ -134,6 +134,9 @@ describe("CalendarClient.listEvents", () => {
         const originalFetch = globalThis.fetch;
         globalThis.fetch = async (url) => {
             capturedUrl = url;
+            if (String(url).includes("/profile")) {
+                return { ok: true, json: async () => ({ result: "success", data: { preferences: { timezone: { name: "Europe/Zurich" } } } }) };
+            }
             return {
                 ok: true,
                 json: async () => ({ result: "success", data: [] })
@@ -152,10 +155,15 @@ describe("CalendarClient.listEvents", () => {
 
     test("throws on non-ok response", async () => {
         const originalFetch = globalThis.fetch;
-        globalThis.fetch = async () => ({
-            ok: false,
-            json: async () => ({ result: "error" })
-        });
+        globalThis.fetch = async (url) => {
+            if (String(url).includes("/profile")) {
+                return { ok: true, json: async () => ({ result: "success", data: { preferences: { timezone: { name: "Europe/Zurich" } } } }) };
+            }
+            return {
+                ok: false,
+                json: async () => ({ result: "error" })
+            };
+        };
 
         const client = new CalendarClient("mock-token");
         client.getDefaultCalendar = async () => ({ id: "1" });
@@ -181,6 +189,9 @@ describe("CalendarClient.listEvents", () => {
                         data: [{ uuid: "res-uuid-1", name: "Salle Genève" }]
                     })
                 };
+            }
+            if (String(url).includes("/profile")) {
+                return { ok: true, json: async () => ({ result: "success", data: { preferences: { timezone: { name: "Europe/Zurich" } } } }) };
             }
             return {
                 ok: true,
@@ -212,6 +223,9 @@ describe("CalendarClient.listEvents", () => {
         globalThis.fetch = async (url) => {
             if (String(url).includes("bookable-resources")) {
                 resourceFetches++;
+            }
+            if (String(url).includes("/profile")) {
+                return { ok: true, json: async () => ({ result: "success", data: { preferences: { timezone: { name: "Europe/Zurich" } } } }) };
             }
             return {
                 ok: true,
