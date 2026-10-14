@@ -99,3 +99,61 @@ export function resolveHttpConfig(env?: NodeJS.ProcessEnv): HttpConfig {
         allowedOrigins,
     };
 }
+
+// ---------------------------------------------------------------------------
+// Startup diagnostics for allowlist values
+// ---------------------------------------------------------------------------
+
+/**
+ * Warns about allowlist values that are syntactically valid but can never do
+ * what the operator intends.
+ *
+ * These are warnings, not errors: the server still starts. A running but
+ * misconfigured deployment is easier to diagnose than a dead one, and the fix
+ * is a configuration edit rather than a code change. Stopping the process here
+ * would turn a cosmetic mistake into an outage.
+ *
+ * Known footguns:
+ * - A `Host` entry carrying a scheme or path (e.g. `https://calendar.example.com`).
+ *   A Host header never includes a scheme, and `hostMatches` compares literally,
+ *   so the entry can never match and that hostname is answered 403.
+ * - An `Origin` entry of exactly `*`. A trailing `*` is a suffix wildcard, so the
+ *   bare `*` matches every origin and the cross-origin / DNS-rebinding guard is
+ *   disabled.
+ *
+ * @returns the warning messages, so callers (and tests) can assert on them.
+ */
+export function warnOnSuspiciousAllowlists(
+    cfg: Pick<HttpConfig, "allowedHosts" | "allowedOrigins">,
+    log: (message: string) => void = console.error,
+): string[] {
+    const warnings: string[] = [];
+
+    for (const entry of cfg.allowedHosts) {
+        if (entry.includes("://") || entry.includes("/")) {
+            const bare = entry
+                .replace(/^[A-Za-z][A-Za-z0-9+.-]*:\/\//, "")
+                .split("/")[0];
+            warnings.push(
+                `MCP_HTTP_ALLOWED_HOSTS entry "${entry}" is not a bare hostname. A Host ` +
+                    `header never includes a scheme or path, so this entry can never match ` +
+                    `and that hostname will be rejected with 403. Use "${bare}" instead.`,
+            );
+        }
+    }
+
+    for (const entry of cfg.allowedOrigins) {
+        if (entry === "*") {
+            warnings.push(
+                `MCP_HTTP_ALLOWED_ORIGINS entry "*" matches every Origin value (a trailing ` +
+                    `"*" is a suffix wildcard), so the cross-origin and DNS-rebinding guard ` +
+                    `is disabled. Set explicit origins, e.g. "https://calendar.example.com".`,
+            );
+        }
+    }
+
+    for (const w of warnings) {
+        log(`warning: ${w}`);
+    }
+    return warnings;
+}
