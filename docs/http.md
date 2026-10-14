@@ -61,6 +61,30 @@ services:
 The image already binds to `0.0.0.0` and exposes `4500`, so you do not need
 to override the entrypoint in compose.
 
+## Configuration precedence: your `.env` beats the image
+
+Values resolve in this order:
+
+```
+your .env  >  Dockerfile ENV  >  code default
+```
+
+The image sets `MCP_HTTP_HOST=0.0.0.0` **on purpose**, so the listen socket is
+reachable from outside the container. Setting that variable in your `.env` (or in
+a compose `environment:` block) **overrides the image**. The usual accident is
+starting from a template that carries `MCP_HTTP_HOST=127.0.0.1`:
+
+| configuration            | the container listens on | from the host                              |
+| ------------------------ | ------------------------ | ------------------------------------------ |
+| unset (image default)    | `0.0.0.0:4500`           | works                                      |
+| `MCP_HTTP_HOST=127.0.0.1` | `127.0.0.1:4500` only    | TCP accepted, then closed at once — `curl: (52) Empty reply from server` |
+
+The container looks healthy in the broken state: `docker ps` reports it `Up`, and
+the log line says `listening on http://127.0.0.1:4500/mcp`. Nothing outside can
+reach it, because `docker-proxy` connects from the bridge gateway rather than
+from inside the container. If a published port accepts and immediately closes,
+check this variable before anything else, then the image's `HEALTHCHECK` status.
+
 ## Required environment variable
 
 | Variable         | Required | Notes                                                                  |
@@ -75,8 +99,8 @@ The server refuses to start without a valid `CALENDAR_TOKEN`.
 | ------------------------ | ---------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | `MCP_HTTP_HOST`          | `0.0.0.0`        | `127.0.0.1`                    | Bind address for the HTTP listener.                                                                            |
 | `MCP_HTTP_PORT`          | `4500`           | `4500`                         | TCP port the HTTP listener binds to. Must be an integer in `1..65535`.                                         |
-| `MCP_HTTP_ALLOWED_HOSTS` | unset            | unset                          | Optional comma-separated allowlist of accepted `Host` header values. If unset, loopback hostnames are allowed (`127.0.0.1`, `localhost`, `[::1]`). |
-| `MCP_HTTP_ALLOWED_ORIGINS` | unset          | unset                          | Optional comma-separated allowlist of accepted `Origin` header values. A trailing `*` is treated as a suffix wildcard (e.g. `http://127.0.0.1:*` matches any port on that host). If unset, the loopback origins with `:*` are allowed. |
+| `MCP_HTTP_ALLOWED_HOSTS` | unset            | unset                          | Optional comma-separated allowlist of accepted `Host` header values, written as **bare hostnames** (`calendar.example.com`). A `Host` header carries no scheme, so an entry like `https://calendar.example.com` can never match and that hostname is answered `403` — the server warns about this shape at startup. If unset, loopback hostnames are allowed (`127.0.0.1`, `localhost`, `[::1]`). Do not set it to an empty value: empty is not unset, and an empty list is a startup error. |
+| `MCP_HTTP_ALLOWED_ORIGINS` | unset          | unset                          | Optional comma-separated allowlist of accepted `Origin` header values. A trailing `*` is treated as a suffix wildcard (e.g. `http://127.0.0.1:*` matches any port on that host). The single value `*` therefore matches **every** origin and disables the guard outright — the server warns about it at startup; use concrete origins. If unset, the loopback origins with `:*` are allowed. |
 
 ## Host and origin validation
 
@@ -119,8 +143,7 @@ and you should not set it in `docker-compose.yml` for the HTTP service.
 
 ## See also
 
-- `.env.example` for a copy-pasteable environment file.
-- `docs/adr-001-stdio-to-http.md` for the design decision that introduced the
-  HTTP transport.
+- `.env.example` for a copy-pasteable environment file — read the precedence
+  section above before copying it into place.
 - Upstream `README.md` for the tool catalogue, Claude Desktop configuration,
   and the `CALENDAR_TOKEN` setup steps.
