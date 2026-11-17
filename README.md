@@ -31,7 +31,7 @@ MCP Server for the Calendar API.
       - `end` (string): The event ending date (eg. 2025-05-28 13:00:00)
    - Optional inputs:
       - `description` (string): Event description
-      - `attendees` (string): JSON array of attendee emails
+      - `attendees` (string): JSON array of attendee emails. The organizer is added as accepted alongside them; an empty list creates the event without attendees
       - `rrule` (string): Recurrence rule in RFC 5545 format (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO`, `FREQ=DAILY`, `FREQ=MONTHLY;BYMONTHDAY=15`)
       - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
    - Returns: The created event
@@ -46,7 +46,7 @@ MCP Server for the Calendar API.
       - `start` (string): The event starting date (eg. 2025-05-28 12:00:00)
       - `end` (string): The event ending date (eg. 2025-05-28 13:00:00)
       - `description` (string): Event description
-      - `attendees` (string): JSON array of attendee emails
+      - `attendees` (string): JSON array of attendee emails. Replaces the event attendees, with the organizer included as accepted; an empty list removes them all
       - `rrule` (string): Recurrence rule in RFC 5545 format (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO`, `FREQ=DAILY`, `FREQ=MONTHLY;BYMONTHDAY=15`). Use empty string to remove recurrence.
       - `calendar_id` (string): Calendar identifier (defaults to event's calendar if omitted)
       - `notify_attendees` (boolean): Send the updated invitation to attendees via email (defaults to false)

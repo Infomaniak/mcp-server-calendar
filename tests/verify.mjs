@@ -115,7 +115,7 @@ describe("CalendarClient.getUserProfile", () => {
         const originalFetch = globalThis.fetch;
         globalThis.fetch = async (url) => {
             capturedUrl = url;
-            return { json: async () => ({ result: "success", data: {} }) };
+            return { ok: true, json: async () => ({ result: "success", data: {} }) };
         };
 
         const client = new CalendarClient("mock-token");

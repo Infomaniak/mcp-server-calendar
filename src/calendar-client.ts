@@ -67,6 +67,10 @@ export class CalendarClient {
             }
         );
 
+        if (!response.ok) {
+            throw new Error(`Something went wrong during profile retrieval ${await response.text()}`);
+        }
+
         return response.json();
     }
 
@@ -312,8 +316,18 @@ export class CalendarClient {
                 throw new Error('Invalid attendees, JSON array of email address is expected');
             }
 
-            if (!Array.isArray(emails)) {
-                throw new Error('Invalid attendees, JSON array of email address is expected');
+            if (!Array.isArray(emails) || emails.some(email => typeof email !== "string" || !email.trim())) {
+                throw new Error('Invalid attendees, JSON array of email address strings is expected');
+            }
+
+            if (emails.length === 0) {
+                return calendarAttendees;
+            }
+
+            const organizerEmail = profile?.data?.email;
+
+            if (!organizerEmail) {
+                throw new Error("Could not resolve the organizer email from the profile response (GET /2/profile). Check that your token has the user_info scope.");
             }
 
             const contacts = await this.getContacts();
@@ -325,27 +339,30 @@ export class CalendarClient {
             }
 
             for (const email of emails) {
-                const contact = contactByEmail.get(String(email).toLowerCase());
+                const attendeeEmail = email.trim();
+                const isOrganizer = attendeeEmail.toLowerCase() === organizerEmail.toLowerCase();
+                const contact = contactByEmail.get(attendeeEmail.toLowerCase());
                 calendarAttendees.push({
                     className: "Attendee",
                     ...(contact ? {contactId: contact.id} : {}),
-                    address: email,
-                    state: "NEEDS-ACTION",
-                    name: contact?.name ?? email,
-                    organizer: false,
+                    address: attendeeEmail,
+                    state: isOrganizer ? "ACCEPTED" : "NEEDS-ACTION",
+                    name: contact?.name ?? (isOrganizer ? profile.data.display_name : undefined) ?? attendeeEmail,
+                    organizer: isOrganizer,
                 });
             }
 
-            const organizerEmail = profile.data.email;
-            const organizerContact = contactByEmail.get(String(organizerEmail).toLowerCase());
-            calendarAttendees.push({
-                className: "Attendee",
-                ...(organizerContact ? {contactId: organizerContact.id} : {}),
-                address: organizerEmail,
-                name: profile.data.display_name,
-                organizer: true,
-                state: "ACCEPTED",
-            });
+            if (!calendarAttendees.some(attendee => attendee.organizer)) {
+                const organizerContact = contactByEmail.get(organizerEmail.toLowerCase());
+                calendarAttendees.push({
+                    className: "Attendee",
+                    ...(organizerContact ? {contactId: organizerContact.id} : {}),
+                    address: organizerEmail,
+                    name: profile.data.display_name,
+                    organizer: true,
+                    state: "ACCEPTED",
+                });
+            }
         }
 
         return calendarAttendees;
