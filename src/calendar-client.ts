@@ -50,6 +50,10 @@ export class CalendarClient {
             }
         );
 
+        if (!response.ok) {
+            throw new Error(`Something went wrong during calendars retrieval ${await response.text()}`);
+        }
+
         return response.json();
     }
 
