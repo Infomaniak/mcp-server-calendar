@@ -32,6 +32,7 @@ globalThis.fetch = async (url, options) => {
             ? {}
             : { timezone: { name: "Europe/Zurich" } };
         return {
+            ok: true,
             json: async () => ({
                 result: "success",
                 data: {
