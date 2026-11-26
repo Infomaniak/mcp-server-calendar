@@ -17,42 +17,60 @@ MCP Server for the Calendar API.
       - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
    - Returns: List of events. Events booking a room include `bookable_resource_name`.
 
-3. `calendar_get_event`
+3. `calendar_list_todos`
+   - List the tasks (to-dos) of a calendar, with their `done` state, `progress` (percent) and `priority`
+   - Optional inputs:
+      - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
+   - Returns: List of tasks. Tasks have no start/end; they carry `due_date`, `done`, `progress` and `priority` instead.
+
+4. `calendar_get_event`
    - Get a single event by ID
    - Required inputs:
       - `event_id` (string): The ID of the event to retrieve
    - Returns: The event. Includes `bookable_resource_name` when the event books a room.
 
-4. `calendar_create_event`
+5. `calendar_create_event`
    - Create a event in your calendar
    - Required inputs:
       - `title` (string): The event title
-      - `start` (string): The event starting date (eg. 2025-05-28 12:00:00)
-      - `end` (string): The event ending date (eg. 2025-05-28 13:00:00)
+      - `start` (string, events only): The event starting date (eg. 2025-05-28 12:00:00)
+      - `end` (string, events only): The event ending date (eg. 2025-05-28 13:00:00)
    - Optional inputs:
+      - `type` (string): `"event"` (default) or `"todo"` to create a task. Tasks have no start/end; set `due_date` instead
+      - `due_date` (string, tasks only): Due date `YYYY-MM-DD` or `YYYY-MM-DD HH:mm:ss`
+      - `priority` (number, tasks only): Task priority 0-10, 0 = none (default 0)
+      - `progress` (number, tasks only): Task progression in percent (default 0)
       - `description` (string): Event description
       - `attendees` (string): JSON array of attendee emails. The organizer is added as accepted alongside them; an empty list creates the event without attendees
       - `rrule` (string): Recurrence rule in RFC 5545 format (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO`, `FREQ=DAILY`, `FREQ=MONTHLY;BYMONTHDAY=15`)
       - `calendar_id` (string): Calendar identifier (defaults to primary calendar if omitted)
-   - Returns: The created event
-   - Notes: Attendees listed in `attendees` receive an actionable invitation email (accept/decline in one click).
+   - Returns: The created event or task
+   - Notes: Attendees listed in `attendees` receive an actionable invitation email (accept/decline in one click). Attendees and recurrence are ignored for tasks.
 
-5. `calendar_update_event`
-   - Update an existing event in your calendar
+6. `calendar_update_event`
+   - Update an existing event or task in your calendar. The object's own type decides the behavior and cannot be changed; pass `type` to fail fast if the object is not the expected kind
    - Required inputs:
-      - `event_id` (string): The ID of the event to update
-   - Optional inputs:
-      - `title` (string): The event title
+      - `event_id` (string): The ID of the event or task to update
+   - Optional inputs (events and tasks):
+      - `title` (string): The title
+      - `description` (string): The description
+      - `calendar_id` (string): Move the event or task to this calendar (defaults to the object's calendar if omitted)
+      - `type` (string): `"event"` or `"todo"` — fails with a clear error if it does not match the object to update
+   - Optional inputs (events only, ignored for tasks):
       - `start` (string): The event starting date (eg. 2025-05-28 12:00:00)
       - `end` (string): The event ending date (eg. 2025-05-28 13:00:00)
-      - `description` (string): Event description
       - `attendees` (string): JSON array of attendee emails. Replaces the event attendees, with the organizer included as accepted; an empty list removes them all
       - `rrule` (string): Recurrence rule in RFC 5545 format (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO`, `FREQ=DAILY`, `FREQ=MONTHLY;BYMONTHDAY=15`). Use empty string to remove recurrence.
-      - `calendar_id` (string): Calendar identifier (defaults to event's calendar if omitted)
       - `notify_attendees` (boolean): Send the updated invitation to attendees via email (defaults to false)
-   - Returns: The updated event
+   - Optional inputs (tasks only, ignored for events):
+      - `done` (boolean): true marks the task done, false reopens it
+      - `progress` (number): Task progression in percent
+      - `due_date` (string): Due date `YYYY-MM-DD` or `YYYY-MM-DD HH:mm:ss`
+      - `priority` (number): Task priority 0-10, 0 = none
+   - Returns: The updated event or task
+   - Notes: Updating a task's title/description/due date/priority/calendar rewrites the task (its reminders are reset — the API does not expose them). Marking a task done/not done with `done` (optionally with `progress`) touches nothing else.
 
-6. `calendar_delete_event`
+7. `calendar_delete_event`
    - Delete an event from your calendar
    - Required inputs:
       - `event_id` (string): The ID of the event to delete

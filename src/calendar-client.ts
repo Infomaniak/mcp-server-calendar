@@ -153,6 +153,27 @@ export class CalendarClient {
         return result;
     }
 
+    async listTodos(calendarId?: string): Promise<any> {
+        let id = calendarId;
+        if (!id) {
+            const calendar = await this.getDefaultCalendar();
+            id = String(calendar.id);
+        }
+
+        const params = new URLSearchParams({calendar_id: id});
+
+        const response = await fetch(
+            `https://api.infomaniak.com/1/calendar/pim/task?${params}`,
+            {headers: this.headers},
+        );
+
+        if (!response.ok) {
+            throw new Error("Something went wrong during task listing");
+        }
+
+        return response.json();
+    }
+
     async getEvent(eventId: string): Promise<any> {
         const response = await fetch(
             `https://api.infomaniak.com/1/calendar/pim/event/${eventId}`,
@@ -169,7 +190,15 @@ export class CalendarClient {
         return result;
     }
 
-    async createEvent(title: string, start: string, end: string, description: string | undefined, attendees: string | undefined, rrule: string | undefined, calendarId?: string): Promise<any> {
+    async createEvent(title: string, start: string | undefined, end: string | undefined, description: string | undefined, attendees: string | undefined, rrule: string | undefined, calendarId?: string, type: string = "event", dueDate?: string, priority?: number, progress?: number): Promise<any> {
+        if (type === "todo") {
+            return this.createTodo(title, description, dueDate, priority, progress, calendarId);
+        }
+
+        if (!start || !end) {
+            throw new Error("start and end are required for events");
+        }
+
         let calendar;
         if (calendarId) {
             calendar = {id: calendarId};
@@ -214,9 +243,56 @@ export class CalendarClient {
         return response.json();
     }
 
-    async updateEvent(eventId: string, title: string | undefined, start: string | undefined, end: string | undefined, description: string | undefined, attendees: string | undefined, rrule: string | undefined, calendarId?: string, notifyAttendees: boolean = false): Promise<any> {
+    private async createTodo(title: string, description: string | undefined, dueDate: string | undefined, priority: number | undefined, progress: number | undefined, calendarId?: string): Promise<any> {
+        let calendar;
+        if (calendarId) {
+            calendar = {id: calendarId};
+        } else {
+            calendar = await this.getDefaultCalendar();
+        }
+
+        const body: Record<string, any> = {
+            type: "todo",
+            calendar_id: calendar.id,
+            title,
+            description,
+            progress: progress ?? 0,
+            priority: priority ?? 0,
+            alarms: [],
+            attachments: [],
+        };
+
+        if (dueDate !== undefined) {
+            body.due_date = dueDate;
+        }
+
+        const response = await fetch(
+            `https://api.infomaniak.com/1/calendar/pim/event`,
+            {
+                headers: this.headers,
+                method: "POST",
+                body: JSON.stringify(body)
+            },
+        );
+
+        if (!response.ok) {
+            throw new Error(`Something went wrong during task creation ${await response.text()}`);
+        }
+
+        return response.json();
+    }
+
+    async updateEvent(eventId: string, title: string | undefined, start: string | undefined, end: string | undefined, description: string | undefined, attendees: string | undefined, rrule: string | undefined, calendarId?: string, notifyAttendees: boolean = false, done?: boolean, progress?: number, type?: string, dueDate?: string, priority?: number): Promise<any> {
         const existing = await this.getEvent(eventId);
         const event = existing.data;
+
+        if (type !== undefined && type !== event.type) {
+            throw new Error(`Cannot update event ${eventId}: it is of type ${event.type}, not ${type}. The type cannot be changed.`);
+        }
+
+        if (event.type === "todo") {
+            return this.updateTodo(event, eventId, title, description, calendarId, done, progress, dueDate, priority);
+        }
 
         let calendar;
         if (calendarId) {
@@ -270,6 +346,61 @@ export class CalendarClient {
 
         if (!response.ok) {
             throw new Error(`Something went wrong during event update ${await response.text()}`);
+        }
+
+        return response.json();
+    }
+
+    private async updateTodo(event: any, eventId: string, title: string | undefined, description: string | undefined, calendarId: string | undefined, done: boolean | undefined, progress: number | undefined, dueDate?: string, priority?: number): Promise<any> {
+        if (title === undefined && description === undefined && calendarId === undefined && dueDate === undefined && priority === undefined) {
+            const body: Record<string, any> = {
+                progression: progress ?? event.progress ?? 0,
+                ...(done !== undefined ? {completed: done} : {}),
+            };
+
+            const response = await fetch(
+                `https://api.infomaniak.com/1/calendar/pim/event/${eventId}/todo-progression`,
+                {
+                    headers: this.headers,
+                    method: "PUT",
+                    body: JSON.stringify(body)
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error(`Something went wrong during task update ${await response.text()}`);
+            }
+
+            return response.json();
+        }
+
+        const body: Record<string, any> = {
+            id: parseInt(eventId),
+            calendar_id: calendarId ?? event.calendar_id,
+            type: "todo",
+            title: title ?? event.title,
+            description: description ?? event.description ?? "",
+            ...(dueDate !== undefined ? {due_date: dueDate} : event.due_date ? {due_date: event.due_date} : {}),
+            ...(event.location ? {location: event.location} : {}),
+            progress: progress ?? event.progress ?? 0,
+            priority: priority ?? event.priority ?? 0,
+            ...(event.private !== undefined ? {private: event.private} : {}),
+            alarms: [],
+            attachments: [],
+            ...(done !== undefined ? {done} : {}),
+        };
+
+        const response = await fetch(
+            `https://api.infomaniak.com/1/calendar/pim/event/${eventId}`,
+            {
+                headers: this.headers,
+                method: "PUT",
+                body: JSON.stringify(body)
+            },
+        );
+
+        if (!response.ok) {
+            throw new Error(`Something went wrong during task update ${await response.text()}`);
         }
 
         return response.json();
