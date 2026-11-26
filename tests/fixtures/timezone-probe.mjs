@@ -43,7 +43,7 @@ globalThis.fetch = async (url, options) => {
             }),
         };
     }
-    return { json: async () => ({ result: "success", data: { calendars: [{ id: 1, default: true }] } }) };
+    return { ok: true, text: async () => "", json: async () => ({ result: "success", data: { calendars: [{ id: 1, default: true }] } }) };
 };
 
 const client = new CalendarClient("mock-token");

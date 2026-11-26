@@ -30,7 +30,7 @@ describe("CalendarClient.getCalendars", () => {
         const originalFetch = globalThis.fetch;
         globalThis.fetch = async (url) => {
             capturedUrl = url;
-            return { json: async () => ({ result: "success", data: { calendars: [] } }) };
+            return { ok: true, text: async () => "", json: async () => ({ result: "success", data: { calendars: [] } }) };
         };
 
         const client = new CalendarClient("mock-token");
@@ -47,6 +47,8 @@ describe("CalendarClient.getDefaultCalendar", () => {
     test("returns first calendar from list", async () => {
         const originalFetch = globalThis.fetch;
         globalThis.fetch = async () => ({
+            ok: true,
+            text: async () => "",
             json: async () => ({
                 result: "success",
                 data: { calendars: [{ id: 1, name: "Test Calendar" }] }
@@ -65,6 +67,8 @@ describe("CalendarClient.getDefaultCalendar", () => {
     test("returns calendar with default:true even when not first", async () => {
         const originalFetch = globalThis.fetch;
         globalThis.fetch = async () => ({
+            ok: true,
+            text: async () => "",
             json: async () => ({
                 result: "success",
                 data: {
@@ -89,6 +93,8 @@ describe("CalendarClient.getDefaultCalendar", () => {
     test("falls back to first calendar when none has default:true", async () => {
         const originalFetch = globalThis.fetch;
         globalThis.fetch = async () => ({
+            ok: true,
+            text: async () => "",
             json: async () => ({
                 result: "success",
                 data: {
@@ -244,6 +250,26 @@ describe("CalendarClient.listEvents", () => {
         } finally {
             globalThis.fetch = originalFetch;
         }
+    });
+});
+
+describe("CalendarClient.getCalendars", () => {
+    test("throws on non-ok response", async () => {
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async () => ({
+            ok: false,
+            text: async () => "",
+            json: async () => ({ result: "error" })
+        });
+
+        const client = new CalendarClient("mock-token");
+
+        await assert.rejects(
+            async () => client.getCalendars(),
+            /Something went wrong during calendars retrieval/
+        );
+
+        globalThis.fetch = originalFetch;
     });
 });
 
